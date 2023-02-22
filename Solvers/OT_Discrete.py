@@ -144,18 +144,18 @@ class dual_obj_loss():
 
     def dual_obj_from_f(self, a, b, f):
         g_sink, f_sink = self.g_from_f(a, b, f)
-        g_sink = torch.nan_to_num(g_sink, nan=0.0, posinf=0.0, neginf=0.0)
-        f_sink = torch.nan_to_num(f_sink, nan=0.0, posinf=0.0, neginf=0.0)
-        dual_obj = torch.sum(f_sink * a, dim=-1) + torch.sum(g_sink * b, dim=-1)
+        g_sink_nan = torch.nan_to_num(g_sink, nan=0.0, posinf=0.0, neginf=0.0)
+        f_sink_nan = torch.nan_to_num(f_sink, nan=0.0, posinf=0.0, neginf=0.0)
+        dual_obj_left = torch.sum(f_sink_nan * a, dim=-1) + torch.sum(g_sink_nan * b, dim=-1)
+        dual_obj_right = - self.epsilon*torch.sum(torch.exp(f_sink/self.epsilon)*(torch.exp(g_sink/self.epsilon)@(self.K)), dim = -1)
+        dual_obj = dual_obj_left + dual_obj_right
         return dual_obj
 
     def pred_transport(self, a, b, f_pred):
         g_sink, f_sink = self.g_from_f(a, b, f_pred)
-        shape = torch.Size([f_pred.shape[0], f_pred.shape[1], f_pred.shape[1]])
-        f_expand = f_sink.unsqueeze(2).expand(shape)
-        g_expand = g_sink.unsqueeze(1).expand(shape)
-        c_expnd = self.C.unsqueeze(0).expand(shape)
-        P = torch.exp((f_expand + g_expand - c_expnd)/self.epsilon)
+        f_expand = f_sink.unsqueeze(2)
+        g_expand = g_sink.unsqueeze(1)
+        P = torch.matmul(torch.exp(f_expand/self.epsilon), torch.exp(g_expand/self.epsilon))*self.K
         P = P.data.cpu().numpy()
         return P
 
